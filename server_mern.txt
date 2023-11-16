@@ -1,0 +1,244 @@
+***** Creación de un Server con Stack MERN ( MySql, Express, React, NodeJs ). *****
+
+*** Crear una Carpeta:
+MD BACKEND_MYSQL
+
+*** Crear el proyecto con NodeJs:
+npm init -y
+
+*** Instalar los paquetes a utilizar express, mysql2, nodemon, dotenv:
+npm i express mysql2 nodemon dotenv
+
+*** Crear el archivo index.js y dentro del archivo digitar:
+node express <enter>
+
+const express = require('express')
+const app = express()
+const port = 3000
+
+app.get('/', (req, res) => res.send('CiberSoft CyS ... BackEnd con MySQL'))
+app.listen(port, () => console.log(`Servidor ejecutándose sobre el puerto ${port} ...`))
+
+*** En el Archivo packaje.json cambiar dentro del Tag Scripts:
+"start": "nodemon index.js
+
+*** Ejecutar el Servidor:
+npm start
+
+*** Abrir un navegador y digitar localhost:3000, debe salir en pantalla esto:
+CiberSoft CyS ... BackEnd con MySQL
+
+*** Crear las carpetas dentro del proyecto raiz, database, controllers, routes:
+MD routes MD controllers MD database
+
+*** Crear el archivo .env en la carpeta raiz y dentro codificar:
+PORT=4000
+HOST = 'localhost'
+PORT_MYSQL = 3306
+USER = 'root'
+PASSWORD = ''
+DATABASE = 'pruebadb'
+
+*** Crear el archivo conexiondb.js dentro de la carpeta database y codificar:
+const mysql = require( 'mysql2/promise' );
+const dotenv = require( 'dotenv' );
+
+dotenv.config();
+
+const pool = mysql.createPool({
+    host: process.env.HOST,
+    port: process.env.PORT_MYSQL,
+    user: process.env.USER,
+    password: process.env.PASSWORD,
+    database: process.env.DATABASE
+});
+
+// Función para ejecutar consultas SQL
+async function runQuery( sql, values = [] ) {
+    const connection = await pool.getConnection();
+    try {
+        const [result] = await connection.execute( sql, values );
+        return result;
+    } finally {
+        connection.release();
+    }
+}
+
+module.exports = {
+    runQuery
+};
+
+*** En el archivo index.js codificar:
+const dotenv = require('dotenv')
+...
+dotenv.config()
+...
+app.listen( process.env.PORT || port, () => console.log( `Servidor ejecutándose sobre el puerto ${ process.env.PORT || port } ...` ) )
+
+*** Crear los archivos en sus respectivas carpetas:
+tareas.routes.js tareas.Controller.js
+
+*** Crear las rutas dentro de tareasRoutes.js quedándo de esta forma:
+const router = require('express').Router();
+
+router.get( '/tareas' );
+router.get( '/tareas/:id' );
+router.post( '/tareas' );
+router.put( '/tareas/:id' );
+router.delete( '/tareas/:id' );
+
+module.exports = router
+
+*** Crear la lógica dentro de tareasController.js quedándo de esta forma:
+module.exports = {
+
+    getTareas: async ( req, res ) => {
+        res.send( 'Consiguendo Tareas ...' );
+    },
+
+    getTarea: async ( req, res ) => {
+        res.send( 'Consiguendo una Tarea ...' );
+    },
+
+    createTarea: async ( req, res ) => {
+        res.send( 'Creando Tareas ...' );
+    },
+
+    updateTarea: async ( req, res ) => {
+        res.send( 'Actualizando una Tarea ...' );
+    },
+
+    deleteTarea: async ( req, res ) => {
+        res.send( 'Borrando una Tarea ...' );
+    },
+
+}
+
+*** Quedándo el archivo tareasRoutes así:
+const router = require('express').Router();
+const tareaControlador = require( '../controllers/tareasController.js' );
+
+router.get( '/tareas', tareaControlador.getTareas );
+router.get( '/tareas/:id', tareaControlador.getTarea );
+router.post( '/tareas', tareaControlador.createTarea );
+router.put( '/tareas/:id', tareaControlador.updateTarea );
+router.delete( '/tareas/:id', tareaControlador.deleteTarea );
+
+module.exports = router
+
+*** quedándo el archivo index.js así:
+const express = require( 'express' );
+const dotenv = require( 'dotenv' );
+const tareasRoutes = require( './routes/tareasRoutes' );
+const app = express();
+const port = 3000;
+
+
+dotenv.config();
+
+app.use(express.json());
+app.use( '/', tareasRoutes );
+app.get( '/', ( req, res ) => res.send( 'CiberSoft CyS ... BackEnd con MySQL' ) );
+app.listen( process.env.PORT || port, () => console.log( `Servidor ejecutándose sobre el puerto ${ process.env.PORT || port } ...` ) );
+
+*** Ahora en tareasController debe quedar así con la lógica:
+const { runQuery } = require( '../conexiondb' );
+
+module.exports = {
+
+    getTareas: async ( req, res ) => {
+        try {
+            const seleccionarQuery = 'SELECT * FROM tareas';
+            const filas = await runQuery( seleccionarQuery );
+            res.status( 200 ).json( filas );                
+        } catch ( error ) {
+            res.status( 500 ).json( { error: 'Error al obtener todas las tareas ...' } );            
+        }
+    },
+
+    getTarea: async ( req, res ) => {
+        try {
+            const tareaId = req.params.id;
+            const seleccionarQuery = `SELECT * FROM tareas WHERE id = ${ tareaId }`;
+            const filas = await runQuery( seleccionarQuery );
+            if( filas.length === 0 ){
+                return res.status( 404 ).json( { message: 'Tarea no encontrada ...'} );
+            }
+            res.status( 200 ).json( filas );                
+        } catch ( error ) {
+            res.status( 500 ).json( { error: 'Error al obtener  la tarea ...' } );
+        }
+    },
+
+    createTarea: async ( req, res ) => {
+        try {
+            const { titulo, descripcion, realizado } = req.body;
+            const insertarQuery = 'INSERT INTO tareas (titulo, descripcion, realizado) VALUES (?, ?, ?)';
+            const insertarValues = [ titulo, descripcion, realizado ];
+            const insertarResultado = await runQuery( insertarQuery, insertarValues );
+            res.status( 200 ).json( insertarResultado );
+        } catch ( error ) {
+            res.status( 500 ).json( { error: 'Error al crear una tarea ...' } );
+        }    
+    },
+
+    updateTarea: async ( req, res ) => {
+        try {
+            const { titulo, descripcion, realizado } = req.body;
+            const modificaQuery = 'UPDATE tareas SET titulo=?, descripcion=?, realizado=? WHERE id=?';
+            const modificaValues = [ titulo, descripcion, realizado, req.params.id ];
+            const modificaResultado = await runQuery( modificaQuery, modificaValues );
+            if(modificaResultado.affectedRows === 0){
+                return res.status( 404 ).json( { message: 'Tarea no encontrada ...'} );
+            }
+            res.status( 200 ).json( modificaResultado );
+        } catch (error) {
+            res.status( 500 ).json( { error: 'Error al modificar una tarea ...' } );
+        }
+    },
+
+    deleteTarea: async ( req, res ) => {
+        try {
+            const tareaId = req.params.id;
+            const borrarQuery = 'DELETE FROM tareas WHERE id = ?';
+            const borrarValues = [ tareaId ];
+            const borrarResultado = await runQuery( borrarQuery, borrarValues );
+            if( borrarResultado.affectedRows === 0){
+                return res.status( 404 ).json( { message: 'Tarea no encontrada ...'} );
+            }
+            res.status( 200 ).json( borrarResultado );
+        } catch ( error ) {
+            res.status( 500 ).json( { error: 'Error al borrar una tarea ...' } );            
+        }
+    },
+}
+
+*** Cambiar esta línea dentro del archivo index.js:
+"start": "node index.js
+
+*** Crear un archivo .gitignore y codificar:
+/node_modules/
+.env
+
+*** Buscar un proveedor en la nube para la Base de Datos MySQL.
+Lo desplegare en Railway.
+
+*** Ahora el despliegue del BackEnd em Vercel.
+*** Crear el archivo vercel.json y codificar esto:
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "./index.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "/"
+        }
+    ]
+}
+
+*** Eso es todo, Gracias ...
